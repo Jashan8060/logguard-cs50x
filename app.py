@@ -315,15 +315,27 @@ async def drivers_post(request: Request):
     city = str(form.get("terminal_city", "Dallas, TX")).strip()
 
     if name and license_num:
-        db = get_db()
-        db.execute(
-            "INSERT INTO drivers (user_id, name, license_number, terminal_city) VALUES (?, ?, ?, ?)",
-            (user_id, name, license_num, city)
-        )
-        db.commit()
-        db.close()
-        flash(request, f"Driver {name} registered successfully.", "success")
-        return RedirectResponse(url="/drivers", status_code=status.HTTP_302_FOUND)
+        db = None
+        try:
+            db = get_db()
+            db.execute(
+                "INSERT INTO drivers (user_id, name, license_number, terminal_city) VALUES (?, ?, ?, ?)",
+                (user_id, name, license_num, city)
+            )
+            db.commit()
+            flash(request, f"Driver {name} registered successfully.", "success")
+            return RedirectResponse(url="/drivers", status_code=status.HTTP_302_FOUND)
+        except Exception as e:
+            if db:
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+            flash(request, f"Error saving driver: {str(e)}", "danger")
+            return RedirectResponse(url="/drivers", status_code=status.HTTP_302_FOUND)
+        finally:
+            if db:
+                db.close()
 
     flash(request, "Name and CDL Number are required.", "danger")
     return RedirectResponse(url="/drivers", status_code=status.HTTP_302_FOUND)
@@ -352,6 +364,7 @@ async def new_log_post(request: Request):
     user_id = request.session["user_id"]
     db = get_db()
     drivers = db.execute("SELECT * FROM drivers WHERE user_id = ? ORDER BY name ASC", (user_id,)).fetchall()
+    db.close()
 
     form = await request.form()
     driver_id = form.get("driver_id")
@@ -366,7 +379,6 @@ async def new_log_post(request: Request):
 
     if not driver_id or not log_date or not statuses:
         flash(request, "Driver, date, and at least one status interval are required.", "danger")
-        db.close()
         return render(request, "log_entry.html", {"drivers": drivers})
 
     events = []
@@ -391,40 +403,52 @@ async def new_log_post(request: Request):
     status_flag = "COMPLIANT" if result["compliant"] else "VIOLATION"
     v_count = len(result["violations"])
 
-    # Insert Daily Log
-    cursor = db.cursor()
-    cursor.execute(
-        """INSERT INTO daily_logs (driver_id, log_date, total_drive_sec, total_on_duty_sec,
-                                   total_off_duty_sec, total_sleeper_sec, violation_count, status, notes)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (driver_id, log_date, result["totals"]["D"], result["totals"]["ON"],
-         result["totals"]["OFF"], result["totals"]["SB"], v_count, status_flag, notes)
-    )
-    log_id = cursor.lastrowid
-
-    # Insert Events
-    for ev in events:
-        st = datetime.fromisoformat(ev["start_time"])
-        et = datetime.fromisoformat(ev["end_time"])
-        dur = max(0, int((et - st).total_seconds()))
+    db = None
+    try:
+        db = get_db()
+        cursor = db.cursor()
         cursor.execute(
-            """INSERT INTO log_events (daily_log_id, duty_status, start_time, end_time, duration_sec, location, odometer)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (log_id, ev["duty_status"], ev["start_time"], ev["end_time"], dur, ev["location"], ev["odometer"])
+            """INSERT INTO daily_logs (driver_id, log_date, total_drive_sec, total_on_duty_sec,
+                                       total_off_duty_sec, total_sleeper_sec, violation_count, status, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (driver_id, log_date, result["totals"]["D"], result["totals"]["ON"],
+             result["totals"]["OFF"], result["totals"]["SB"], v_count, status_flag, notes)
         )
+        log_id = cursor.lastrowid
 
-    # Insert Violations
-    for v in result["violations"]:
-        cursor.execute(
-            """INSERT INTO violations (daily_log_id, rule_code, severity, description, event_timestamp)
-               VALUES (?, ?, ?, ?, ?)""",
-            (log_id, v["rule_code"], v["severity"], v["description"], v["timestamp"])
-        )
+        # Insert Events
+        for ev in events:
+            st = datetime.fromisoformat(ev["start_time"])
+            et = datetime.fromisoformat(ev["end_time"])
+            dur = max(0, int((et - st).total_seconds()))
+            cursor.execute(
+                """INSERT INTO log_events (daily_log_id, duty_status, start_time, end_time, duration_sec, location, odometer)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (log_id, ev["duty_status"], ev["start_time"], ev["end_time"], dur, ev["location"], ev["odometer"])
+            )
 
-    db.commit()
-    db.close()
-    flash(request, f"Log for {log_date} analyzed: {v_count} violation(s) identified.", "success" if v_count == 0 else "warning")
-    return RedirectResponse(url=f"/logs/{log_id}", status_code=status.HTTP_302_FOUND)
+        # Insert Violations
+        for v in result["violations"]:
+            cursor.execute(
+                """INSERT INTO violations (daily_log_id, rule_code, severity, description, event_timestamp)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (log_id, v["rule_code"], v["severity"], v["description"], v["timestamp"])
+            )
+
+        db.commit()
+        flash(request, f"Log for {log_date} analyzed: {v_count} violation(s) identified.", "success" if v_count == 0 else "warning")
+        return RedirectResponse(url=f"/logs/{log_id}", status_code=status.HTTP_302_FOUND)
+    except Exception as e:
+        if db:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+        flash(request, f"Error saving log: {str(e)}", "danger")
+        return render(request, "log_entry.html", {"drivers": drivers})
+    finally:
+        if db:
+            db.close()
 
 
 @app.post("/logs/upload")
@@ -468,38 +492,42 @@ async def upload_csv_log(request: Request):
         status_flag = "COMPLIANT" if result["compliant"] else "VIOLATION"
         v_count = len(result["violations"])
 
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute(
-            """INSERT INTO daily_logs (driver_id, log_date, total_drive_sec, total_on_duty_sec,
-                                       total_off_duty_sec, total_sleeper_sec, violation_count, status, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (driver_id, log_date, result["totals"]["D"], result["totals"]["ON"],
-             result["totals"]["OFF"], result["totals"]["SB"], v_count, status_flag, f"Uploaded via CSV ({csv_file.filename})")
-        )
-        log_id = cursor.lastrowid
-
-        for ev in events:
-            st = datetime.fromisoformat(ev["start_time"])
-            et = datetime.fromisoformat(ev["end_time"])
-            dur = max(0, int((et - st).total_seconds()))
+        db = None
+        try:
+            db = get_db()
+            cursor = db.cursor()
             cursor.execute(
-                """INSERT INTO log_events (daily_log_id, duty_status, start_time, end_time, duration_sec, location, odometer)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (log_id, ev["duty_status"], ev["start_time"], ev["end_time"], dur, ev["location"], ev["odometer"])
+                """INSERT INTO daily_logs (driver_id, log_date, total_drive_sec, total_on_duty_sec,
+                                           total_off_duty_sec, total_sleeper_sec, violation_count, status, notes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (driver_id, log_date, result["totals"]["D"], result["totals"]["ON"],
+                 result["totals"]["OFF"], result["totals"]["SB"], v_count, status_flag, f"Uploaded via CSV ({csv_file.filename})")
             )
+            log_id = cursor.lastrowid
 
-        for v in result["violations"]:
-            cursor.execute(
-                """INSERT INTO violations (daily_log_id, rule_code, severity, description, event_timestamp)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (log_id, v["rule_code"], v["severity"], v["description"], v["timestamp"])
-            )
+            for ev in events:
+                st = datetime.fromisoformat(ev["start_time"])
+                et = datetime.fromisoformat(ev["end_time"])
+                dur = max(0, int((et - st).total_seconds()))
+                cursor.execute(
+                    """INSERT INTO log_events (daily_log_id, duty_status, start_time, end_time, duration_sec, location, odometer)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (log_id, ev["duty_status"], ev["start_time"], ev["end_time"], dur, ev["location"], ev["odometer"])
+                )
 
-        db.commit()
-        db.close()
-        flash(request, f"CSV successfully imported! Found {v_count} violation(s).", "success" if v_count == 0 else "warning")
-        return RedirectResponse(url=f"/logs/{log_id}", status_code=status.HTTP_302_FOUND)
+            for v in result["violations"]:
+                cursor.execute(
+                    """INSERT INTO violations (daily_log_id, rule_code, severity, description, event_timestamp)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (log_id, v["rule_code"], v["severity"], v["description"], v["timestamp"])
+                )
+
+            db.commit()
+            flash(request, f"CSV successfully imported! Found {v_count} violation(s).", "success" if v_count == 0 else "warning")
+            return RedirectResponse(url=f"/logs/{log_id}", status_code=status.HTTP_302_FOUND)
+        finally:
+            if db:
+                db.close()
 
     except Exception as e:
         flash(request, f"CSV Parsing Error: {str(e)}", "danger")
