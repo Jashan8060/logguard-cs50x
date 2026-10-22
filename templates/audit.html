@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Compliance Audit Radar &bull; LogGuard{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <div class="header-breadcrumbs">
+                <a href="{{ url_for('dashboard') }}">Dashboard</a> / <span class="active-crumb">Audit Radar</span>
+            </div>
+            <h1 class="page-title">Fleet Safety Audit & Regulatory Violations</h1>
+            <p class="page-subtitle">Comprehensive safety log audit reporting across all commercial drivers.</p>
+        </div>
+    </div>
+
+    <!-- Rule Code Distribution Breakdown -->
+    <div class="rule-stats-grid">
+        <div class="rule-stat-card">
+            <div class="rule-stat-header">
+                <span class="rule-badge">US_11H_DRIVE</span>
+                <span class="rule-count">{{ rule_counts.get('US_11H_DRIVE', 0) }}</span>
+            </div>
+            <h3 class="rule-title">11-Hour Driving Limit</h3>
+            <p class="rule-desc">Driving in excess of 11 cumulative hours following a qualifying 10-hour rest period (49 CFR § 395.3(a)(1)).</p>
+        </div>
+
+        <div class="rule-stat-card">
+            <div class="rule-stat-header">
+                <span class="rule-badge">US_14H_WINDOW</span>
+                <span class="rule-count">{{ rule_counts.get('US_14H_WINDOW', 0) }}</span>
+            </div>
+            <h3 class="rule-title">14-Hour Duty Window</h3>
+            <p class="rule-desc">Operating a CMV after the 14th consecutive hour from coming on-duty following 10 hours rest (49 CFR § 395.3(a)(2)).</p>
+        </div>
+
+        <div class="rule-stat-card">
+            <div class="rule-stat-header">
+                <span class="rule-badge">US_30M_BREAK</span>
+                <span class="rule-count">{{ rule_counts.get('US_30M_BREAK', 0) }}</span>
+            </div>
+            <h3 class="rule-title">30-Minute Rest Break</h3>
+            <p class="rule-desc">Driving after 8 cumulative hours of driving without an interruption of at least 30 consecutive minutes (49 CFR § 395.3(a)(3)(ii)).</p>
+        </div>
+    </div>
+
+    <!-- Violations Table -->
+    <div class="content-card mt-6">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">All Flagged Violations ({{ violations | length }})</h2>
+                <p class="card-subtitle">Audited event logs requiring corrective safety counseling or log editing</p>
+            </div>
+        </div>
+
+        {% if violations %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Rule Code</th>
+                        <th>Severity</th>
+                        <th>Driver</th>
+                        <th>Log Date</th>
+                        <th>Timestamp</th>
+                        <th>Explanation</th>
+                        <th>Inspect Log</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in violations %}
+                    <tr>
+                        <td><span class="violation-code">{{ v.rule_code }}</span></td>
+                        <td>
+                            <span class="badge {% if v.severity == 'CRITICAL' %}badge-danger{% else %}badge-warning{% endif %}">
+                                {{ v.severity }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="driver-cell">
+                                <span class="driver-name">{{ v.driver_name }}</span>
+                                <span class="driver-cdl">{{ v.license_number }}</span>
+                            </div>
+                        </td>
+                        <td>{{ v.log_date }}</td>
+                        <td><code>{{ v.event_timestamp }}</code></td>
+                        <td class="font-medium text-red-light">{{ v.description }}</td>
+                        <td>
+                            <a href="{{ url_for('view_log', log_id=v.log_id) }}" class="btn-table">
+                                <span>Inspect</span>
+                                <i data-lucide="external-link"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i data-lucide="shield-check" class="empty-icon icon-green"></i>
+            <h3>No Violations on Record</h3>
+            <p>Your fleet currently maintains a 100% compliant safety posture under FMCSA rules.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Fleet Dashboard &bull; LogGuard{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Header Hero -->
+    <div class="page-header">
+        <div>
+            <div class="header-breadcrumbs">
+                <span>Fleet Operations</span> / <span class="active-crumb">Compliance Radar</span>
+            </div>
+            <h1 class="page-title">Safety & Compliance Dashboard</h1>
+            <p class="page-subtitle">Real-time FMCSA property-carrying duty cycle monitoring and automated violation detection.</p>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('new_log') }}" class="btn-primary">
+                <i data-lucide="plus-circle"></i>
+                <span>Validate New Log</span>
+            </a>
+            <a href="{{ url_for('manage_drivers') }}" class="btn-secondary">
+                <i data-lucide="user-plus"></i>
+                <span>Manage Drivers</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI Metric Cards Grid -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-icon icon-blue">
+                <i data-lucide="file-check-2"></i>
+            </div>
+            <div class="kpi-data">
+                <span class="kpi-label">Logs Analyzed</span>
+                <span class="kpi-value">{{ total_logs }}</span>
+            </div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-icon icon-green">
+                <i data-lucide="shield-check"></i>
+            </div>
+            <div class="kpi-data">
+                <span class="kpi-label">Compliant Logs</span>
+                <span class="kpi-value">{{ compliant_logs }}</span>
+                {% if total_logs > 0 %}
+                <span class="kpi-trend trend-positive">{{ ((compliant_logs / total_logs) * 100) | round(1) }}% Rate</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-icon icon-red">
+                <i data-lucide="alert-triangle"></i>
+            </div>
+            <div class="kpi-data">
+                <span class="kpi-label">Violations Flagged</span>
+                <span class="kpi-value text-red">{{ total_violations }}</span>
+                <span class="kpi-sub">{{ violation_logs }} non-compliant logs</span>
+            </div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-icon icon-indigo">
+                <i data-lucide="users"></i>
+            </div>
+            <div class="kpi-data">
+                <span class="kpi-label">Active Drivers</span>
+                <span class="kpi-value">{{ drivers | length }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Layout -->
+    <div class="dashboard-grid">
+        <!-- Logs Table Column -->
+        <div class="content-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Recent Driver Logs</h2>
+                    <p class="card-subtitle">Showing chronological submissions across your fleet</p>
+                </div>
+                <a href="{{ url_for('new_log') }}" class="btn-link">
+                    <span>Add Log</span>
+                    <i data-lucide="chevron-right"></i>
+                </a>
+            </div>
+
+            {% if logs %}
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Driver</th>
+                            <th>Log Date</th>
+                            <th>Driving</th>
+                            <th>Total On-Duty</th>
+                            <th>Status</th>
+                            <th>Violations</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>
+                                <div class="driver-cell">
+                                    <span class="driver-name">{{ log.driver_name }}</span>
+                                    <span class="driver-cdl">CDL: {{ log.license_number }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="date-badge">
+                                    <i data-lucide="calendar" class="icon-tiny"></i>
+                                    {{ log.log_date }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="time-stat">{{ log.total_drive_sec | format_duration }}</span>
+                            </td>
+                            <td>
+                                <span class="time-stat">{{ (log.total_drive_sec + log.total_on_duty_sec) | format_duration }}</span>
+                            </td>
+                            <td>
+                                <span class="badge {{ log.status | status_badge }}">
+                                    {% if log.status == 'COMPLIANT' %}
+                                    <i data-lucide="check" class="badge-icon"></i>
+                                    {% else %}
+                                    <i data-lucide="alert-circle" class="badge-icon"></i>
+                                    {% endif %}
+                                    {{ log.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if log.violation_count > 0 %}
+                                <span class="pill-danger">{{ log.violation_count }} Detected</span>
+                                {% else %}
+                                <span class="pill-neutral">0</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('view_log', log_id=log.id) }}" class="btn-table">
+                                    <span>Inspect</span>
+                                    <i data-lucide="arrow-up-right"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="inbox" class="empty-icon"></i>
+                <h3>No Logs Found</h3>
+                <p>Upload a driver log CSV or manually enter status intervals to begin analysis.</p>
+                <a href="{{ url_for('new_log') }}" class="btn-primary mt-3">Validate First Log</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Violations Radar Sidebar -->
+        <div class="content-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Live Safety Radar</h2>
+                    <p class="card-subtitle">Recent non-compliant incidents</p>
+                </div>
+                <a href="{{ url_for('audit') }}" class="btn-link">
+                    <span>Full Audit</span>
+                    <i data-lucide="chevron-right"></i>
+                </a>
+            </div>
+
+            {% if violations %}
+            <div class="violation-feed">
+                {% for v in violations %}
+                <div class="violation-item">
+                    <div class="violation-header">
+                        <span class="violation-code">{{ v.rule_code }}</span>
+                        <span class="badge {% if v.severity == 'CRITICAL' %}badge-danger{% else %}badge-warning{% endif %}">
+                            {{ v.severity }}
+                        </span>
+                    </div>
+                    <p class="violation-desc">{{ v.description }}</p>
+                    <div class="violation-footer">
+                        <span class="violation-meta">
+                            <i data-lucide="user" class="icon-tiny"></i>
+                            {{ v.driver_name }}
+                        </span>
+                        <span class="violation-meta">
+                            <i data-lucide="clock" class="icon-tiny"></i>
+                            {{ v.event_timestamp }}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="shield-check" class="empty-icon icon-green"></i>
+                <h3>Clean Record</h3>
+                <p>No active violations detected across recent duty logs.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

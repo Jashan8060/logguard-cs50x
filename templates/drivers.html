@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Driver Registry &bull; LogGuard{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <div class="header-breadcrumbs">
+                <a href="{{ url_for('dashboard') }}">Dashboard</a> / <span class="active-crumb">Drivers</span>
+            </div>
+            <h1 class="page-title">Commercial Driver Registry</h1>
+            <p class="page-subtitle">Roster of commercial drivers under safety oversight and their active compliance records.</p>
+        </div>
+    </div>
+
+    <div class="drivers-layout-grid">
+        <!-- Add Driver Form -->
+        <div class="content-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Register New Driver</h2>
+                    <p class="card-subtitle">Add a commercial driver to track their daily HOS cycles</p>
+                </div>
+            </div>
+
+            <form action="{{ url_for('manage_drivers') }}" method="POST" class="standard-form">
+                <div class="form-group">
+                    <label for="name" class="form-label">Driver Full Name</label>
+                    <div class="input-icon-wrapper">
+                        <i data-lucide="user" class="input-icon"></i>
+                        <input type="text" id="name" name="name" class="form-input" placeholder="e.g. John Henderson" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="license_number" class="form-label">Commercial Driver License (CDL)</label>
+                    <div class="input-icon-wrapper">
+                        <i data-lucide="credit-card" class="input-icon"></i>
+                        <input type="text" id="license_number" name="license_number" class="form-input" placeholder="e.g. TX-9842104C" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="terminal_city" class="form-label">Home Terminal City & State</label>
+                    <div class="input-icon-wrapper">
+                        <i data-lucide="map-pin" class="input-icon"></i>
+                        <input type="text" id="terminal_city" name="terminal_city" class="form-input" placeholder="Dallas, TX" value="Dallas, TX">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary btn-block">
+                    <i data-lucide="user-plus"></i>
+                    <span>Register Driver</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Drivers Roster Table -->
+        <div class="content-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Fleet Roster ({{ drivers | length }})</h2>
+                    <p class="card-subtitle">Current status and cumulative logs</p>
+                </div>
+            </div>
+
+            {% if drivers %}
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Driver Name</th>
+                            <th>CDL Number</th>
+                            <th>Terminal</th>
+                            <th>Total Logs</th>
+                            <th>Violations</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in drivers %}
+                        <tr>
+                            <td>
+                                <div class="driver-cell">
+                                    <div class="avatar-sm">{{ d.name[0] }}</div>
+                                    <span class="driver-name font-semibold">{{ d.name }}</span>
+                                </div>
+                            </td>
+                            <td><code>{{ d.license_number }}</code></td>
+                            <td>
+                                <span class="terminal-text">
+                                    <i data-lucide="map-pin" class="icon-tiny"></i>
+                                    {{ d.terminal_city }}
+                                </span>
+                            </td>
+                            <td><span class="pill-neutral">{{ d.log_count }} logs</span></td>
+                            <td>
+                                {% if d.violation_count > 0 %}
+                                <span class="badge badge-danger">{{ d.violation_count }} Flagged</span>
+                                {% else %}
+                                <span class="badge badge-success">Clean</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('new_log') }}?driver_id={{ d.id }}" class="btn-table">
+                                    <span>Log Shift</span>
+                                    <i data-lucide="plus"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="users" class="empty-icon"></i>
+                <h3>No Drivers Registered</h3>
+                <p>Register your first driver on the left form to start logging duty cycles.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

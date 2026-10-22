@@ -1,0 +1,29 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# SQLite databases (seeded automatically on startup)
+*.db
+*.sqlite3
+
+# Environment and secrets
+.env
+
+# Editor & OS artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Pytest / Coverage cache
+.pytest_cache/
+.coverage
+htmlcov/

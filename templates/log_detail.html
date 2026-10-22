@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Log Inspection #{{ log.id }} &bull; LogGuard{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <!-- Top Breadcrumb & Action Header -->
+    <div class="page-header">
+        <div>
+            <div class="header-breadcrumbs">
+                <a href="{{ url_for('dashboard') }}">Dashboard</a> / <span>Inspection</span> / <span class="active-crumb">#{{ log.id }}</span>
+            </div>
+            <h1 class="page-title">{{ log.driver_name }} &bull; {{ log.log_date }}</h1>
+            <p class="page-subtitle">CDL: <code>{{ log.license_number }}</code> &bull; Terminal: {{ log.terminal_city }}</p>
+        </div>
+        <div class="header-actions">
+            <span class="badge {{ log.status | status_badge }} badge-lg">
+                {% if log.status == 'COMPLIANT' %}
+                <i data-lucide="shield-check" class="badge-icon"></i>
+                {% else %}
+                <i data-lucide="alert-triangle" class="badge-icon"></i>
+                {% endif %}
+                {{ log.status }}
+            </span>
+            <a href="{{ url_for('new_log') }}" class="btn-secondary">
+                <i data-lucide="plus"></i>
+                <span>Validate Another</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Duration Metric Cards Row -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-icon icon-blue">
+                <i data-lucide="truck"></i>
+            </div>
+            <div class="kpi-data">
+                <span class="kpi-label">Cumulative Driving</span>
+                <span class="kpi-value">{{ log.total_drive_sec | format_duration }}</span>
+                <span class="kpi-sub {% if log.total_drive_sec > 39600 %}text-red{% endif %}">
+                    Max: 11h 00m
+                </span>
+            </div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-icon icon-amber">
+                <i data-lucide="clock"></i>
+            </div>
+            <div class="kpi-data">
+                <span class="kpi-label">On-Duty (Not Driving)</span>
+                <span class="kpi-value">{{ log.total_on_duty_sec | format_duration }}</span>
+                <span class="kpi-sub">Total Duty: {{ (log.total_drive_sec + log.total_on_duty_sec) | format_duration }}</span>
+            </div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-icon icon-green">
+                <i data-lucide="coffee"></i>
+            </div>
+            <div class="kpi-data">
+                <span class="kpi-label">Off-Duty Rest</span>
+                <span class="kpi-value">{{ log.total_off_duty_sec | format_duration }}</span>
+                <span class="kpi-sub">Reset threshold: 10h 00m</span>
+            </div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-icon icon-indigo">
+                <i data-lucide="bed"></i>
+            </div>
+            <div class="kpi-data">
+                <span class="kpi-label">Sleeper Berth</span>
+                <span class="kpi-value">{{ log.total_sleeper_sec | format_duration }}</span>
+                <span class="kpi-sub">Eligible for split sleeper</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 24-Hour DOT Visualizer Grid Canvas Card -->
+    <div class="content-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">24-Hour DOT Graph Grid</h2>
+                <p class="card-subtitle">Official federal duty status representation (OFF, Sleeper, Driving, On-Duty)</p>
+            </div>
+            <div class="chart-legend">
+                <span class="legend-item"><span class="legend-color color-off"></span> OFF</span>
+                <span class="legend-item"><span class="legend-color color-sb"></span> SB</span>
+                <span class="legend-item"><span class="legend-color color-d"></span> Driving</span>
+                <span class="legend-item"><span class="legend-color color-on"></span> ON</span>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="dotLogCanvas" width="1050" height="260"></canvas>
+        </div>
+    </div>
+
+    <!-- Violations Section -->
+    {% if violations %}
+    <div class="content-card border-red">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title text-red">
+                    <i data-lucide="alert-octagon" class="inline-icon"></i>
+                    Compliance Violations Detected ({{ violations | length }})
+                </h2>
+                <p class="card-subtitle">The compliance engine identified regulatory breaches for this date</p>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Rule Code</th>
+                        <th>Severity</th>
+                        <th>Timestamp</th>
+                        <th>Violation Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in violations %}
+                    <tr>
+                        <td><span class="violation-code">{{ v.rule_code }}</span></td>
+                        <td>
+                            <span class="badge {% if v.severity == 'CRITICAL' %}badge-danger{% else %}badge-warning{% endif %}">
+                                {{ v.severity }}
+                            </span>
+                        </td>
+                        <td><code>{{ v.event_timestamp }}</code></td>
+                        <td class="font-medium text-red-light">{{ v.description }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="compliance-success-card">
+        <div class="success-icon-box">
+            <i data-lucide="check-check"></i>
+        </div>
+        <div>
+            <h3 class="success-title">100% FMCSA Compliant Log</h3>
+            <p class="success-desc">Zero 11-hour driving, 14-hour shift window, or 30-minute rest break violations occurred during this shift.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Event Intervals Breakdown Table -->
+    <div class="content-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Chronological Log Events</h2>
+                <p class="card-subtitle">Detailed timestamp intervals parsed from the duty record</p>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Status</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Duration</th>
+                        <th>Location</th>
+                        <th>Odometer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ev in events %}
+                    <tr>
+                        <td><span class="index-badge">{{ loop.index }}</span></td>
+                        <td>
+                            <span class="status-pill status-{{ ev.duty_status | lower }}">
+                                {{ ev.duty_status }}
+                            </span>
+                        </td>
+                        <td><code>{{ ev.start_time }}</code></td>
+                        <td><code>{{ ev.end_time }}</code></td>
+                        <td><strong>{{ ev.duration_sec | format_duration }}</strong></td>
+                        <td>
+                            <span class="location-text">
+                                <i data-lucide="map-pin" class="icon-tiny"></i>
+                                {{ ev.location }}
+                            </span>
+                        </td>
+                        <td>{{ ev.odometer }} mi</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pass Log Events Data to Canvas Visualizer -->
+<script>
+    const LOG_EVENTS = {{ events_json | tojson }};
+    const LOG_DATE = "{{ log.log_date }}";
+</script>
+<script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+{% endblock %}

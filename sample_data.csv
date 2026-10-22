@@ -1,0 +1,8 @@
+duty_status,start_time,end_time,location,odometer,notes
+OFF,2026-10-22 00:00:00,2026-10-22 05:00:00,Dallas Terminal,140200.0,Resting at home terminal
+ON,2026-10-22 05:00:00,2026-10-22 05:30:00,Dallas Yard,140200.0,Pre-trip Vehicle Inspection
+D,2026-10-22 05:30:00,2026-10-22 10:30:00,I-30 Eastbound,140500.0,En route to Texarkana
+OFF,2026-10-22 10:30:00,2026-10-22 11:15:00,Texarkana Rest Stop,140500.0,30-minute DOT mandatory meal break
+D,2026-10-22 11:15:00,2026-10-22 16:45:00,I-30 Little Rock,140830.0,Driving to distribution hub
+ON,2026-10-22 16:45:00,2026-10-22 17:30:00,Little Rock Depot,140830.0,Post-trip inspection and unloading
+SB,2026-10-22 17:30:00,2026-10-22 23:59:59,Little Rock Sleeper,140830.0,Sleeper berth rest

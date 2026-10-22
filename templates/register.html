@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Register &bull; LogGuard{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="badge-tag">Safety Manager Portal</div>
+            <h1 class="auth-title">Create Account</h1>
+            <p class="auth-subtitle">Initialize your fleet safety and compliance monitoring workspace.</p>
+        </div>
+
+        <form action="{{ url_for('register') }}" method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="full_name" class="form-label">Full Name</label>
+                <div class="input-icon-wrapper">
+                    <i data-lucide="badge-check" class="input-icon"></i>
+                    <input type="text" id="full_name" name="full_name" class="form-input" placeholder="e.g. David Malan" required autofocus>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <div class="input-icon-wrapper">
+                    <i data-lucide="user" class="input-icon"></i>
+                    <input type="text" id="username" name="username" class="form-input" placeholder="e.g. dmalan" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <div class="input-icon-wrapper">
+                    <i data-lucide="lock" class="input-icon"></i>
+                    <input type="password" id="password" name="password" class="form-input" placeholder="Minimum 6 characters" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password" class="form-label">Confirm Password</label>
+                <div class="input-icon-wrapper">
+                    <i data-lucide="shield-check" class="input-icon"></i>
+                    <input type="password" id="confirm_password" name="confirm_password" class="form-input" placeholder="Re-enter password" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary btn-block">
+                <span>Complete Registration</span>
+                <i data-lucide="user-plus"></i>
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Already have an account? <a href="{{ url_for('login') }}" class="link-highlight">Sign in</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

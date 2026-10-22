@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}LogGuard - FMCSA HOS Compliance Platform{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons via unpkg -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Main Style Sheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Ambient Background Glows -->
+    <div class="glow-bg glow-blue"></div>
+    <div class="glow-bg glow-purple"></div>
+
+    <!-- Navigation Header -->
+    <header class="app-header">
+        <div class="container nav-container">
+            <a href="{{ url_for('dashboard') if session.get('user_id') else url_for('login') }}" class="brand-logo">
+                <div class="logo-icon">
+                    <i data-lucide="shield-check"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title">LOGGUARD</span>
+                    <span class="brand-tag">CS50x Final Project</span>
+                </div>
+            </a>
+
+            {% if session.get('user_id') %}
+            <nav class="main-nav">
+                <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('new_log') }}" class="nav-link {% if request.endpoint == 'new_log' %}active{% endif %}">
+                    <i data-lucide="file-plus"></i>
+                    <span>Validate Log</span>
+                </a>
+                <a href="{{ url_for('manage_drivers') }}" class="nav-link {% if request.endpoint == 'manage_drivers' %}active{% endif %}">
+                    <i data-lucide="users"></i>
+                    <span>Drivers</span>
+                </a>
+                <a href="{{ url_for('audit') }}" class="nav-link {% if request.endpoint == 'audit' %}active{% endif %}">
+                    <i data-lucide="alert-octagon"></i>
+                    <span>Audit Radar</span>
+                </a>
+            </nav>
+
+            <div class="user-pill-container">
+                <div class="user-pill">
+                    <div class="avatar-circle">
+                        {{ session.get('full_name', 'U')[0] }}
+                    </div>
+                    <div class="user-details">
+                        <span class="user-name">{{ session.get('full_name') }}</span>
+                        <span class="user-role">{{ session.get('role', 'Safety Officer') }}</span>
+                    </div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="btn-logout" title="Sign Out">
+                    <i data-lucide="log-out"></i>
+                </a>
+            </div>
+            {% else %}
+            <div class="auth-cta">
+                <a href="{{ url_for('login') }}" class="btn-ghost">Log In</a>
+                <a href="{{ url_for('register') }}" class="btn-primary">Register</a>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <!-- Flash Messages -->
+    <div class="container flash-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        <div class="alert-icon">
+                            {% if category == 'success' %}
+                                <i data-lucide="check-circle-2"></i>
+                            {% elif category == 'danger' %}
+                                <i data-lucide="alert-circle"></i>
+                            {% elif category == 'warning' %}
+                                <i data-lucide="alert-triangle"></i>
+                            {% else %}
+                                <i data-lucide="info"></i>
+                            {% endif %}
+                        </div>
+                        <span class="alert-message">{{ message }}</span>
+                        <button type="button" class="alert-close" onclick="this.parentElement.remove();">&times;</button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Main View Content -->
+    <main class="app-main container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <div class="container footer-content">
+            <p><strong>LogGuard</strong> &mdash; Educational FMCSA Hours of Service (HOS) Engine & Visualizer.</p>
+            <p class="footer-sub">Submitted for Harvard CS50x: Introduction to Computer Science &bull; 2026</p>
+        </div>
+    </footer>
+
+    <!-- Initialize Lucide Icons -->
+    <script>
+        lucide.createIcons();
+    </script>
+    <!-- App Scripts -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

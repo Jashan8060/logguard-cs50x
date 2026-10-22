@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Log In &bull; LogGuard{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="badge-tag">CS50x Final Project</div>
+            <h1 class="auth-title">Welcome to LogGuard</h1>
+            <p class="auth-subtitle">Validate commercial driver logs against federal safety regulations.</p>
+        </div>
+
+        <form action="{{ url_for('login') }}" method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <div class="input-icon-wrapper">
+                    <i data-lucide="user" class="input-icon"></i>
+                    <input type="text" id="username" name="username" class="form-input" placeholder="e.g. demo" required autofocus>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <div class="input-icon-wrapper">
+                    <i data-lucide="lock" class="input-icon"></i>
+                    <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required>
+                </div>
+            </div>
+
+            <!-- Demo Fill Pill -->
+            <div class="demo-credential-pill" onclick="fillDemoCredentials()">
+                <div class="pill-badge">Demo Account</div>
+                <div class="pill-text">Click to autofill <code>demo</code> / <code>cs50x2026!</code></div>
+            </div>
+
+            <button type="submit" class="btn-primary btn-block">
+                <span>Sign In to Dashboard</span>
+                <i data-lucide="arrow-right"></i>
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Don't have an account? <a href="{{ url_for('register') }}" class="link-highlight">Create one</a></p>
+        </div>
+    </div>
+</div>
+
+<script>
+function fillDemoCredentials() {
+    document.getElementById('username').value = 'demo';
+    document.getElementById('password').value = 'cs50x2026!';
+}
+</script>
+{% endblock %}

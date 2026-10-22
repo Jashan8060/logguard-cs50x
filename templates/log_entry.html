@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Validate Driver Log &bull; LogGuard{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <div class="header-breadcrumbs">
+                <a href="{{ url_for('dashboard') }}">Dashboard</a> / <span class="active-crumb">New Validation</span>
+            </div>
+            <h1 class="page-title">Validate Daily Duty Log</h1>
+            <p class="page-subtitle">Input duty status intervals or upload an ELD CSV export to execute the FMCSA rule engine.</p>
+        </div>
+    </div>
+
+    <!-- Mode Selector Tabs -->
+    <div class="tabs-container">
+        <button type="button" class="tab-button active" onclick="switchTab('manual')">
+            <i data-lucide="edit-3"></i>
+            <span>Interactive Entry</span>
+        </button>
+        <button type="button" class="tab-button" onclick="switchTab('upload')">
+            <i data-lucide="upload-cloud"></i>
+            <span>Upload CSV Log</span>
+        </button>
+    </div>
+
+    <!-- TAB 1: Manual Interactive Entry Form -->
+    <div id="tab-manual" class="tab-pane active">
+        <form action="{{ url_for('new_log') }}" method="POST" class="content-card form-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Driver & Shift Details</h2>
+                    <p class="card-subtitle">Select the driver and calendar date for this 24-hour log cycle</p>
+                </div>
+            </div>
+
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label for="driver_id" class="form-label">Select Driver</label>
+                    <select id="driver_id" name="driver_id" class="form-select" required>
+                        <option value="">-- Choose a Driver --</option>
+                        {% for d in drivers %}
+                        <option value="{{ d.id }}" {% if request.query_params.get('driver_id')|int == d.id %}selected{% endif %}>
+                            {{ d.name }} (CDL: {{ d.license_number }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="log_date" class="form-label">Log Date (YYYY-MM-DD)</label>
+                    <input type="date" id="log_date" name="log_date" class="form-input" required value="{{ now_date or '2026-10-22' }}">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="notes" class="form-label">Trip Notes / Route Description</label>
+                <input type="text" id="notes" name="notes" class="form-input" placeholder="e.g. Interstate 35 Corridor delivery from Dallas to Kansas City">
+            </div>
+
+            <!-- Dynamic Duty Intervals -->
+            <div class="intervals-section">
+                <div class="section-header-flex">
+                    <div>
+                        <h3 class="section-title">24-Hour Duty Status Intervals</h3>
+                        <p class="section-subtitle">Define chronological status switches. Total durations must cover the shift.</p>
+                    </div>
+                    <button type="button" class="btn-secondary btn-sm" onclick="addIntervalRow()">
+                        <i data-lucide="plus"></i>
+                        <span>Add Status Interval</span>
+                    </button>
+                </div>
+
+                <div class="intervals-table-wrapper">
+                    <table class="intervals-table" id="intervalsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 22%;">Duty Status</th>
+                                <th style="width: 18%;">Start (HH:MM)</th>
+                                <th style="width: 18%;">End (HH:MM)</th>
+                                <th style="width: 25%;">Location</th>
+                                <th style="width: 12%;">Odometer</th>
+                                <th style="width: 5%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="intervalsBody">
+                            <!-- Default Interval 1 -->
+                            <tr class="interval-row">
+                                <td>
+                                    <select name="duty_status[]" class="form-select status-select" required>
+                                        <option value="OFF" selected>OFF - Off Duty</option>
+                                        <option value="SB">SB - Sleeper Berth</option>
+                                        <option value="D">D - Driving</option>
+                                        <option value="ON">ON - On Duty (Not Driving)</option>
+                                    </select>
+                                </td>
+                                <td><input type="time" name="start_time[]" class="form-input" value="00:00" required></td>
+                                <td><input type="time" name="end_time[]" class="form-input" value="06:00" required></td>
+                                <td><input type="text" name="location[]" class="form-input" value="Dallas Terminal"></td>
+                                <td><input type="number" step="0.1" name="odometer[]" class="form-input" value="120000.0"></td>
+                                <td><button type="button" class="btn-remove" onclick="removeRow(this)">&times;</button></td>
+                            </tr>
+                            <!-- Default Interval 2: Pre-trip -->
+                            <tr class="interval-row">
+                                <td>
+                                    <select name="duty_status[]" class="form-select status-select" required>
+                                        <option value="OFF">OFF - Off Duty</option>
+                                        <option value="SB">SB - Sleeper Berth</option>
+                                        <option value="D">D - Driving</option>
+                                        <option value="ON" selected>ON - On Duty (Not Driving)</option>
+                                    </select>
+                                </td>
+                                <td><input type="time" name="start_time[]" class="form-input" value="06:00" required></td>
+                                <td><input type="time" name="end_time[]" class="form-input" value="06:30" required></td>
+                                <td><input type="text" name="location[]" class="form-input" value="Dallas Yard"></td>
+                                <td><input type="number" step="0.1" name="odometer[]" class="form-input" value="120000.0"></td>
+                                <td><button type="button" class="btn-remove" onclick="removeRow(this)">&times;</button></td>
+                            </tr>
+                            <!-- Default Interval 3: Driving -->
+                            <tr class="interval-row">
+                                <td>
+                                    <select name="duty_status[]" class="form-select status-select" required>
+                                        <option value="OFF">OFF - Off Duty</option>
+                                        <option value="SB">SB - Sleeper Berth</option>
+                                        <option value="D" selected>D - Driving</option>
+                                        <option value="ON">ON - On Duty (Not Driving)</option>
+                                    </select>
+                                </td>
+                                <td><input type="time" name="start_time[]" class="form-input" value="06:30" required></td>
+                                <td><input type="time" name="end_time[]" class="form-input" value="11:30" required></td>
+                                <td><input type="text" name="location[]" class="form-input" value="I-35 N Hillsboro"></td>
+                                <td><input type="number" step="0.1" name="odometer[]" class="form-input" value="120300.0"></td>
+                                <td><button type="button" class="btn-remove" onclick="removeRow(this)">&times;</button></td>
+                            </tr>
+                            <!-- Default Interval 4: 30m Break -->
+                            <tr class="interval-row">
+                                <td>
+                                    <select name="duty_status[]" class="form-select status-select" required>
+                                        <option value="OFF" selected>OFF - Off Duty</option>
+                                        <option value="SB">SB - Sleeper Berth</option>
+                                        <option value="D">D - Driving</option>
+                                        <option value="ON">ON - On Duty (Not Driving)</option>
+                                    </select>
+                                </td>
+                                <td><input type="time" name="start_time[]" class="form-input" value="11:30" required></td>
+                                <td><input type="time" name="end_time[]" class="form-input" value="12:15" required></td>
+                                <td><input type="text" name="location[]" class="form-input" value="Travel Plaza Waco"></td>
+                                <td><input type="number" step="0.1" name="odometer[]" class="form-input" value="120300.0"></td>
+                                <td><button type="button" class="btn-remove" onclick="removeRow(this)">&times;</button></td>
+                            </tr>
+                            <!-- Default Interval 5: Driving -->
+                            <tr class="interval-row">
+                                <td>
+                                    <select name="duty_status[]" class="form-select status-select" required>
+                                        <option value="OFF">OFF - Off Duty</option>
+                                        <option value="SB">SB - Sleeper Berth</option>
+                                        <option value="D" selected>D - Driving</option>
+                                        <option value="ON">ON - On Duty (Not Driving)</option>
+                                    </select>
+                                </td>
+                                <td><input type="time" name="start_time[]" class="form-input" value="12:15" required></td>
+                                <td><input type="time" name="end_time[]" class="form-input" value="17:45" required></td>
+                                <td><input type="text" name="location[]" class="form-input" value="I-35 S Austin"></td>
+                                <td><input type="number" step="0.1" name="odometer[]" class="form-input" value="120650.0"></td>
+                                <td><button type="button" class="btn-remove" onclick="removeRow(this)">&times;</button></td>
+                            </tr>
+                            <!-- Default Interval 6: Sleeper -->
+                            <tr class="interval-row">
+                                <td>
+                                    <select name="duty_status[]" class="form-select status-select" required>
+                                        <option value="OFF">OFF - Off Duty</option>
+                                        <option value="SB" selected>SB - Sleeper Berth</option>
+                                        <option value="D">D - Driving</option>
+                                        <option value="ON">ON - On Duty (Not Driving)</option>
+                                    </select>
+                                </td>
+                                <td><input type="time" name="start_time[]" class="form-input" value="17:45" required></td>
+                                <td><input type="time" name="end_time[]" class="form-input" value="23:59" required></td>
+                                <td><input type="text" name="location[]" class="form-input" value="Austin Sleeper Yard"></td>
+                                <td><input type="number" step="0.1" name="odometer[]" class="form-input" value="120650.0"></td>
+                                <td><button type="button" class="btn-remove" onclick="removeRow(this)">&times;</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="form-actions-bar">
+                <a href="{{ url_for('dashboard') }}" class="btn-ghost">Cancel</a>
+                <button type="submit" class="btn-primary">
+                    <i data-lucide="cpu"></i>
+                    <span>Execute FMCSA Verification</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- TAB 2: Upload CSV Log Form -->
+    <div id="tab-upload" class="tab-pane">
+        <form action="{{ url_for('upload_csv_log') }}" method="POST" enctype="multipart/form-data" class="content-card form-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Import & Validate CSV Log</h2>
+                    <p class="card-subtitle">Upload a standard ELD CSV file with duty status event timestamps</p>
+                </div>
+            </div>
+
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label for="upload_driver_id" class="form-label">Driver</label>
+                    <select id="upload_driver_id" name="driver_id" class="form-select" required>
+                        <option value="">-- Choose a Driver --</option>
+                        {% for d in drivers %}
+                        <option value="{{ d.id }}">{{ d.name }} (CDL: {{ d.license_number }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="upload_log_date" class="form-label">Log Date (YYYY-MM-DD)</label>
+                    <input type="date" id="upload_log_date" name="log_date" class="form-input" required value="2026-10-22">
+                </div>
+            </div>
+
+            <!-- Drag and drop zone -->
+            <div class="file-dropzone" onclick="document.getElementById('csv_file').click()">
+                <i data-lucide="file-spreadsheet" class="dropzone-icon"></i>
+                <h3 class="dropzone-title">Click to select or drag CSV file here</h3>
+                <p class="dropzone-desc">Accepted columns: <code>duty_status, start_time, end_time, location, odometer, notes</code></p>
+                <input type="file" id="csv_file" name="csv_file" accept=".csv" required style="display: none;" onchange="showSelectedFileName(this)">
+                <span id="fileNameDisplay" class="selected-filename">No file selected</span>
+            </div>
+
+            <div class="sample-csv-note">
+                <i data-lucide="info" class="icon-tiny"></i>
+                <span>You can test with the pre-packaged <code>sample_data.csv</code> included in the project directory!</span>
+            </div>
+
+            <div class="form-actions-bar">
+                <a href="{{ url_for('dashboard') }}" class="btn-ghost">Cancel</a>
+                <button type="submit" class="btn-primary">
+                    <i data-lucide="check-circle-2"></i>
+                    <span>Upload & Execute Engine</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function switchTab(tab) {
+    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+    if (tab === 'manual') {
+        document.querySelector('.tab-button:nth-child(1)').classList.add('active');
+        document.getElementById('tab-manual').classList.add('active');
+    } else {
+        document.querySelector('.tab-button:nth-child(2)').classList.add('active');
+        document.getElementById('tab-upload').classList.add('active');
+    }
+    lucide.createIcons();
+}
+
+function addIntervalRow() {
+    const tbody = document.getElementById('intervalsBody');
+    const tr = document.createElement('tr');
+    tr.className = 'interval-row';
+    tr.innerHTML = `
+        <td>
+            <select name="duty_status[]" class="form-select status-select" required>
+                <option value="OFF">OFF - Off Duty</option>
+                <option value="SB">SB - Sleeper Berth</option>
+                <option value="D">D - Driving</option>
+                <option value="ON">ON - On Duty (Not Driving)</option>
+            </select>
+        </td>
+        <td><input type="time" name="start_time[]" class="form-input" required></td>
+        <td><input type="time" name="end_time[]" class="form-input" required></td>
+        <td><input type="text" name="location[]" class="form-input" placeholder="City, State"></td>
+        <td><input type="number" step="0.1" name="odometer[]" class="form-input" placeholder="0.0"></td>
+        <td><button type="button" class="btn-remove" onclick="removeRow(this)">&times;</button></td>
+    `;
+    tbody.appendChild(tr);
+    lucide.createIcons();
+}
+
+function removeRow(btn) {
+    const rows = document.querySelectorAll('.interval-row');
+    if (rows.length > 1) {
+        btn.closest('tr').remove();
+    } else {
+        alert("At least one status interval is required.");
+    }
+}
+
+function showSelectedFileName(input) {
+    const display = document.getElementById('fileNameDisplay');
+    if (input.files && input.files[0]) {
+        display.textContent = "Selected: " + input.files[0].name;
+        display.classList.add('has-file');
+    }
+}
+</script>
+{% endblock %}
