@@ -407,6 +407,12 @@ async def new_log_post(request: Request):
     try:
         db = get_db()
         cursor = db.cursor()
+
+        # If a log already exists for this driver on this date, replace it cleanly
+        existing = cursor.execute("SELECT id FROM daily_logs WHERE driver_id = ? AND log_date = ?", (driver_id, log_date)).fetchone()
+        if existing:
+            cursor.execute("DELETE FROM daily_logs WHERE id = ?", (existing["id"],))
+
         cursor.execute(
             """INSERT INTO daily_logs (driver_id, log_date, total_drive_sec, total_on_duty_sec,
                                        total_off_duty_sec, total_sleeper_sec, violation_count, status, notes)
@@ -496,6 +502,12 @@ async def upload_csv_log(request: Request):
         try:
             db = get_db()
             cursor = db.cursor()
+
+            # If a log already exists for this driver on this date, replace it cleanly
+            existing = cursor.execute("SELECT id FROM daily_logs WHERE driver_id = ? AND log_date = ?", (driver_id, log_date)).fetchone()
+            if existing:
+                cursor.execute("DELETE FROM daily_logs WHERE id = ?", (existing["id"],))
+
             cursor.execute(
                 """INSERT INTO daily_logs (driver_id, log_date, total_drive_sec, total_on_duty_sec,
                                            total_off_duty_sec, total_sleeper_sec, violation_count, status, notes)
